@@ -12,14 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
-import {
-  Category,
-  ImportIdeasRequest,
-  GetCategoriesResponse,
-} from "@shared/api";
+import { Category } from "@shared/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
+import { getGroupCategories, importIdeas } from "@/lib/firebase-services";
 
 export default function ImportIdeas() {
+  const { user, loading } = useAuth();
   const [text, setText] = useState("");
   const [categoryId, setCategoryId] = useState("none");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -27,17 +26,32 @@ export default function ImportIdeas() {
   const [previewIdeas, setPreviewIdeas] = useState<
     { text: string; description?: string }[]
   >([]);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (loading) return;
 
-  // Refresh categories when dialog opens
-  useEffect(() => {
-    fetchCategories();
-  }, [text]); // Refresh when user starts typing
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const groupData = localStorage.getItem("selectedGroup");
+    if (!groupData) {
+      navigate("/groups");
+      return;
+    }
+
+    try {
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      fetchCategories(group.id);
+    } catch (error) {
+      navigate("/groups");
+    }
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     if (text.trim()) {
@@ -47,13 +61,18 @@ export default function ImportIdeas() {
     }
   }, [text]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (groupId: string) => {
     try {
-      const response = await fetch("/api/categories");
-      const data = (await response.json()) as GetCategoriesResponse;
-      setCategories(data.categories);
+      const groupCategories = await getGroupCategories(groupId);
+      setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast({
+        title: "Error",
+        description:
+          "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -140,6 +159,18 @@ export default function ImportIdeas() {
   const loadExample = () => {
     setText(exampleText);
   };
+
+  // Loading state
+  if (loading || !user || !selectedGroup) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
