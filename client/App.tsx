@@ -17,6 +17,7 @@ import ImportIdeas from "./pages/ImportIdeas";
 import Calendar from "./pages/Calendar";
 import Categories from "./pages/Categories";
 import IdeaDetail from "./pages/IdeaDetail";
+import Debug from "./pages/Debug";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/import" element={<ImportIdeas />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/categories" element={<Categories />} />
+            <Route path="/debug" element={<Debug />} />
             <Route path="/" element={<Index />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

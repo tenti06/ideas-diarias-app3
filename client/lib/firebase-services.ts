@@ -188,13 +188,6 @@ export const createIdea = async (
   description?: string,
   categoryId?: string,
 ): Promise<string> => {
-  // Get current ideas count for ordering
-  const ideasQuery = query(
-    collection(db, "ideas"),
-    where("groupId", "==", groupId),
-  );
-  const ideasSnapshot = await getDocs(ideasQuery);
-
   const ideaData = {
     text,
     description: description || null,
@@ -202,7 +195,7 @@ export const createIdea = async (
     completed: false,
     dateCreated: serverTimestamp(),
     dateCompleted: null,
-    order: ideasSnapshot.size,
+    order: Date.now(), // Usar timestamp como orden simplificado
     groupId,
     createdBy: userId,
   };
@@ -212,10 +205,10 @@ export const createIdea = async (
 };
 
 export const getGroupIdeas = async (groupId: string): Promise<Idea[]> => {
+  // Simplificar consulta - solo filtrar por groupId, ordenar en memoria
   const ideasQuery = query(
     collection(db, "ideas"),
     where("groupId", "==", groupId),
-    orderBy("order", "asc"),
   );
   const ideasSnapshot = await getDocs(ideasQuery);
 
@@ -235,7 +228,8 @@ export const getGroupIdeas = async (groupId: string): Promise<Idea[]> => {
     ideas.push(ideaData);
   }
 
-  return ideas;
+  // Ordenar en memoria para evitar índice compuesto
+  return ideas.sort((a, b) => (a.order || 0) - (b.order || 0));
 };
 
 export const updateIdea = async (
@@ -286,17 +280,10 @@ export const createCategory = async (
   name: string,
   color: string,
 ): Promise<string> => {
-  // Get current categories count for ordering
-  const categoriesQuery = query(
-    collection(db, "categories"),
-    where("groupId", "==", groupId),
-  );
-  const categoriesSnapshot = await getDocs(categoriesQuery);
-
   const categoryData = {
     name,
     color,
-    order: categoriesSnapshot.size,
+    order: Date.now(), // Usar timestamp como orden simplificado
     groupId,
     createdBy: userId,
     dateCreated: serverTimestamp(),
@@ -309,17 +296,20 @@ export const createCategory = async (
 export const getGroupCategories = async (
   groupId: string,
 ): Promise<Category[]> => {
+  // Simplificar consulta - solo filtrar por groupId, ordenar en memoria
   const categoriesQuery = query(
     collection(db, "categories"),
     where("groupId", "==", groupId),
-    orderBy("order", "asc"),
   );
   const categoriesSnapshot = await getDocs(categoriesQuery);
 
-  return categoriesSnapshot.docs.map((doc) => ({
+  const categories = categoriesSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Category[];
+
+  // Ordenar en memoria para evitar índice compuesto
+  return categories.sort((a, b) => (a.order || 0) - (b.order || 0));
 };
 
 export const updateCategory = async (
@@ -344,15 +334,8 @@ export const importIdeas = async (
   const lines = text.split("\n").filter((line) => line.trim());
   const batch = writeBatch(db);
 
-  // Get current ideas count for ordering
-  const ideasQuery = query(
-    collection(db, "ideas"),
-    where("groupId", "==", groupId),
-  );
-  const ideasSnapshot = await getDocs(ideasQuery);
-  let currentOrder = ideasSnapshot.size;
-
   let importedCount = 0;
+  let baseTimestamp = Date.now();
 
   lines.forEach((line) => {
     const trimmedLine = line.trim();
@@ -398,7 +381,7 @@ export const importIdeas = async (
         completed: false,
         dateCreated: serverTimestamp(),
         dateCompleted: null,
-        order: currentOrder++,
+        order: baseTimestamp + importedCount, // Orden único usando timestamp + contador
         groupId,
         createdBy: userId,
       });

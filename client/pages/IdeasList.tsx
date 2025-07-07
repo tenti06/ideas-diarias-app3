@@ -61,6 +61,7 @@ export default function IdeasList() {
     try {
       const group = JSON.parse(groupData);
       setSelectedGroup(group);
+      // Cargar datos directamente
       fetchIdeas(group.id);
       fetchCategories(group.id);
     } catch (error) {
@@ -72,7 +73,9 @@ export default function IdeasList() {
   const fetchIdeas = async (groupId: string) => {
     try {
       setIsLoading(true);
+      console.log("Cargando ideas para grupo:", groupId);
       const groupIdeas = await getGroupIdeas(groupId);
+      console.log("Ideas cargadas:", groupIdeas.length);
       setIdeas(groupIdeas);
     } catch (error) {
       console.error("Error fetching ideas:", error);
@@ -88,7 +91,9 @@ export default function IdeasList() {
 
   const fetchCategories = async (groupId: string) => {
     try {
+      console.log("Cargando categorías para grupo:", groupId);
       const groupCategories = await getGroupCategories(groupId);
+      console.log("Categorías cargadas:", groupCategories.length);
       setCategories(groupCategories);
       // Open all categories by default
       setOpenCategories(new Set(groupCategories.map((cat) => cat.id)));
