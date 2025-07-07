@@ -193,20 +193,15 @@ export default function IdeaDetail() {
     if (!idea) return;
 
     try {
-      const response = await fetch(`/api/ideas/${idea.id}`, {
-        method: "DELETE",
-      });
+      await deleteIdea(idea.id);
 
-      if (response.ok) {
-        toast({
-          title: "Idea eliminada",
-          description: "La idea se ha eliminado exitosamente.",
-        });
-        navigate("/ideas");
-      } else {
-        throw new Error("Failed to delete idea");
-      }
+      toast({
+        title: "Idea eliminada",
+        description: "La idea se ha eliminado exitosamente.",
+      });
+      navigate("/ideas");
     } catch (error) {
+      console.error("Error deleting idea:", error);
       toast({
         title: "Error",
         description: "No se pudo eliminar la idea. Inténtalo de nuevo.",
@@ -224,10 +219,13 @@ export default function IdeaDetail() {
     setIsEditing(false);
   };
 
-  if (!idea) {
+  if (loading || !user || !selectedGroup || !idea) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <div className="flex items-center gap-3 text-gray-600">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando idea...</span>
+        </div>
       </div>
     );
   }
