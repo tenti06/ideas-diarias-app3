@@ -46,8 +46,12 @@ export default function AddIdea() {
     try {
       const group = JSON.parse(groupData);
       setSelectedGroup(group);
-      fetchCategories(group.id);
+      // Only fetch data if we have both user and group
+      if (user && group.id) {
+        fetchCategories(group.id);
+      }
     } catch (error) {
+      console.error("Error parsing group data:", error);
       navigate("/groups");
     }
   }, [user, loading, navigate]);
