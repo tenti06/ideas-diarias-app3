@@ -52,80 +52,59 @@ export default function IdeasList() {
       return;
     }
 
-    // Add a small delay to ensure user is fully authenticated
-    const timeoutId = setTimeout(() => {
-      const groupData = localStorage.getItem("selectedGroup");
-      if (!groupData) {
-        navigate("/groups");
-        return;
-      }
-
-      try {
-        const group = JSON.parse(groupData);
-        setSelectedGroup(group);
-        // Only fetch if we have a fully authenticated user
-        if (user && user.id && group && group.id) {
-          fetchIdeas(group.id);
-          fetchCategories(group.id);
-        }
-      } catch (error) {
-        console.error("Error parsing group data:", error);
-        navigate("/groups");
-      }
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [user, loading, navigate]);
-
-  const fetchIdeas = async (groupId: string) => {
-    // Don't fetch if user is not authenticated
-    if (!user || !user.id) {
-      console.log("Skipping ideas fetch - user not authenticated");
+    const groupData = localStorage.getItem("selectedGroup");
+    if (!groupData) {
+      navigate("/groups");
       return;
     }
 
     try {
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      // Cargar datos directamente
+      fetchIdeas(group.id);
+      fetchCategories(group.id);
+    } catch (error) {
+      console.error("Error parsing group data:", error);
+      navigate("/groups");
+    }
+  }, [user, loading, navigate]);
+
+  const fetchIdeas = async (groupId: string) => {
+    try {
       setIsLoading(true);
+      console.log("Cargando ideas para grupo:", groupId);
       const groupIdeas = await getGroupIdeas(groupId);
+      console.log("Ideas cargadas:", groupIdeas.length);
       setIdeas(groupIdeas);
     } catch (error) {
       console.error("Error fetching ideas:", error);
-      // Only show error if user is authenticated (to avoid spam when not logged in)
-      if (user && user.id) {
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const fetchCategories = async (groupId: string) => {
-    // Don't fetch if user is not authenticated
-    if (!user || !user.id) {
-      console.log("Skipping categories fetch - user not authenticated");
-      return;
-    }
-
     try {
+      console.log("Cargando categorías para grupo:", groupId);
       const groupCategories = await getGroupCategories(groupId);
+      console.log("Categorías cargadas:", groupCategories.length);
       setCategories(groupCategories);
       // Open all categories by default
       setOpenCategories(new Set(groupCategories.map((cat) => cat.id)));
     } catch (error) {
       console.error("Error fetching categories:", error);
-      // Only show error if user is authenticated (to avoid spam when not logged in)
-      if (user && user.id) {
-        toast({
-          title: "Error",
-          description:
-            "No se pudieron cargar las categorías. Inténtalo de nuevo.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Error",
+        description:
+          "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 
