@@ -79,6 +79,8 @@ export default function Categories() {
     try {
       const group = JSON.parse(groupData);
       setSelectedGroup(group);
+      // Cargar datos directamente
+      console.log("Cargando datos para grupo:", group.id);
       fetchCategories(group.id);
       fetchIdeas(group.id);
     } catch (error) {
