@@ -63,11 +63,10 @@ export default function Categories() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Don't do anything while loading or if no user
-    if (loading || !user) {
-      if (!loading && !user) {
-        navigate("/login");
-      }
+    if (loading) return;
+
+    if (!user) {
+      navigate("/login");
       return;
     }
 
@@ -80,14 +79,10 @@ export default function Categories() {
     try {
       const group = JSON.parse(groupData);
       setSelectedGroup(group);
-      // Only fetch data if we have authenticated user and valid group
-      if (user && user.id && group && group.id) {
-        fetchCategories(group.id);
-        fetchIdeas(group.id);
-      }
+      fetchCategories(group.id);
+      fetchIdeas(group.id);
     } catch (error) {
       console.error("Error parsing group data:", error);
-      localStorage.removeItem("selectedGroup");
       navigate("/groups");
     }
   }, [user, loading, navigate]);
