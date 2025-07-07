@@ -104,6 +104,12 @@ export default function IdeasList() {
   };
 
   const fetchCategories = async (groupId: string) => {
+    // Don't fetch if user is not authenticated
+    if (!user || !user.id) {
+      console.log("Skipping categories fetch - user not authenticated");
+      return;
+    }
+
     try {
       const groupCategories = await getGroupCategories(groupId);
       setCategories(groupCategories);
@@ -111,12 +117,15 @@ export default function IdeasList() {
       setOpenCategories(new Set(groupCategories.map((cat) => cat.id)));
     } catch (error) {
       console.error("Error fetching categories:", error);
-      toast({
-        title: "Error",
-        description:
-          "No se pudieron cargar las categorías. Inténtalo de nuevo.",
-        variant: "destructive",
-      });
+      // Only show error if user is authenticated (to avoid spam when not logged in)
+      if (user && user.id) {
+        toast({
+          title: "Error",
+          description:
+            "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
