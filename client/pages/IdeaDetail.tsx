@@ -21,17 +21,21 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Idea,
-  Category,
-  UpdateIdeaRequest,
-  GetCategoriesResponse,
-} from "@shared/api";
+import { Idea, Category } from "@shared/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import {
+  getGroupIdeas,
+  getGroupCategories,
+  updateIdea,
+  deleteIdea,
+  completeIdea,
+} from "@/lib/firebase-services";
 
 export default function IdeaDetail() {
   const { id } = useParams();
+  const { user, loading } = useAuth();
   const [idea, setIdea] = useState<Idea | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -39,31 +43,55 @@ export default function IdeaDetail() {
   const [editDescription, setEditDescription] = useState("");
   const [editCategoryId, setEditCategoryId] = useState("none");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (id) {
-      fetchIdea();
-      fetchCategories();
-    }
-  }, [id]);
+    if (loading) return;
 
-  const fetchIdea = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const groupData = localStorage.getItem("selectedGroup");
+    if (!groupData) {
+      navigate("/groups");
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/ideas/${id}`);
-      if (!response.ok) {
-        throw new Error('Idea not found');
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      if (id) {
+        fetchIdea(group.id);
+        fetchCategories(group.id);
       }
-      const data = await response.json();
-      const idea = data.idea;
-      
-      if (idea) {
-        setIdea(idea);
-        setEditText(idea.text);
-        setEditDescription(idea.description || "");
-        setEditCategoryId(idea.categoryId || "none");
+    } catch (error) {
+      navigate("/groups");
+    }
+  }, [id, user, loading, navigate]);
+
+  const fetchIdea = async (groupId: string) => {
+    if (!id) return;
+
+    try {
+      const groupIdeas = await getGroupIdeas(groupId);
+      const foundIdea = groupIdeas.find((i) => i.id === id);
+
+      if (foundIdea) {
+        setIdea(foundIdea);
+        setEditText(foundIdea.text);
+        setEditDescription(foundIdea.description || "");
+        setEditCategoryId(foundIdea.categoryId || "none");
       } else {
+        toast({
+          title: "Idea no encontrada",
+          description:
+            "La idea que buscas no existe o no tienes acceso a ella.",
+          variant: "destructive",
+        });
         navigate("/ideas");
       }
     } catch (error) {
@@ -77,13 +105,17 @@ export default function IdeaDetail() {
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (groupId: string) => {
     try {
-      const response = await fetch("/api/categories");
-      const data = (await response.json()) as GetCategoriesResponse;
-      setCategories(data.categories);
+      const groupCategories = await getGroupCategories(groupId);
+      setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las categorías.",
+        variant: "destructive",
+      });
     }
   };
 
