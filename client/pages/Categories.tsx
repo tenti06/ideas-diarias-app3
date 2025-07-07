@@ -110,11 +110,14 @@ export default function Categories() {
       setIdeas(groupIdeas);
     } catch (error) {
       console.error("Error fetching ideas:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
-        variant: "destructive",
-      });
+      // Only show error toast if user is authenticated and has a group
+      if (user && selectedGroup) {
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
