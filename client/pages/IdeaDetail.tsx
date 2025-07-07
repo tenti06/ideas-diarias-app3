@@ -21,17 +21,21 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Idea,
-  Category,
-  UpdateIdeaRequest,
-  GetCategoriesResponse,
-} from "@shared/api";
+import { Idea, Category } from "@shared/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import {
+  getGroupIdeas,
+  getGroupCategories,
+  updateIdea,
+  deleteIdea,
+  completeIdea,
+} from "@/lib/firebase-services";
 
 export default function IdeaDetail() {
   const { id } = useParams();
+  const { user, loading } = useAuth();
   const [idea, setIdea] = useState<Idea | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -39,31 +43,55 @@ export default function IdeaDetail() {
   const [editDescription, setEditDescription] = useState("");
   const [editCategoryId, setEditCategoryId] = useState("none");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (id) {
-      fetchIdea();
-      fetchCategories();
-    }
-  }, [id]);
+    if (loading) return;
 
-  const fetchIdea = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const groupData = localStorage.getItem("selectedGroup");
+    if (!groupData) {
+      navigate("/groups");
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/ideas/${id}`);
-      if (!response.ok) {
-        throw new Error('Idea not found');
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      if (id) {
+        fetchIdea(group.id);
+        fetchCategories(group.id);
       }
-      const data = await response.json();
-      const idea = data.idea;
-      
-      if (idea) {
-        setIdea(idea);
-        setEditText(idea.text);
-        setEditDescription(idea.description || "");
-        setEditCategoryId(idea.categoryId || "none");
+    } catch (error) {
+      navigate("/groups");
+    }
+  }, [id, user, loading, navigate]);
+
+  const fetchIdea = async (groupId: string) => {
+    if (!id) return;
+
+    try {
+      const groupIdeas = await getGroupIdeas(groupId);
+      const foundIdea = groupIdeas.find((i) => i.id === id);
+
+      if (foundIdea) {
+        setIdea(foundIdea);
+        setEditText(foundIdea.text);
+        setEditDescription(foundIdea.description || "");
+        setEditCategoryId(foundIdea.categoryId || "none");
       } else {
+        toast({
+          title: "Idea no encontrada",
+          description:
+            "La idea que buscas no existe o no tienes acceso a ella.",
+          variant: "destructive",
+        });
         navigate("/ideas");
       }
     } catch (error) {
@@ -77,49 +105,50 @@ export default function IdeaDetail() {
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (groupId: string) => {
     try {
-      const response = await fetch("/api/categories");
-      const data = (await response.json()) as GetCategoriesResponse;
-      setCategories(data.categories);
+      const groupCategories = await getGroupCategories(groupId);
+      setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las categorías.",
+        variant: "destructive",
+      });
     }
   };
 
   const toggleCompletion = async () => {
-    if (!idea) return;
+    if (!idea || !user || !selectedGroup) return;
 
     try {
       if (!idea.completed) {
         // Complete the idea
-        await fetch("/api/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ideaId: idea.id,
-            date: new Date().toISOString().split("T")[0],
-          }),
+        await completeIdea(
+          user.id,
+          idea.id,
+          new Date().toISOString().split("T")[0],
+        );
+        toast({
+          title: "¡Idea completada!",
+          description: "La idea se ha marcado como completada.",
         });
       } else {
         // Uncomplete the idea
-        await fetch(`/api/ideas/${idea.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ completed: false, dateCompleted: undefined }),
+        await updateIdea(idea.id, {
+          completed: false,
+          dateCompleted: undefined,
+        });
+        toast({
+          title: "Idea reactivada",
+          description: "La idea se ha movido a pendientes.",
         });
       }
 
-      fetchIdea(); // Refresh data
-      toast({
-        title: idea.completed
-          ? "Idea marcada como pendiente"
-          : "¡Idea completada!",
-        description: idea.completed
-          ? "La idea se ha movido a pendientes"
-          : "La idea se ha marcado como completada",
-      });
+      fetchIdea(selectedGroup.id); // Refresh data
     } catch (error) {
+      console.error("Error toggling completion:", error);
       toast({
         title: "Error",
         description: "No se pudo actualizar el estado de la idea.",
@@ -129,36 +158,27 @@ export default function IdeaDetail() {
   };
 
   const handleSave = async () => {
-    if (!idea || !editText.trim()) return;
+    if (!idea || !editText.trim() || !selectedGroup) return;
 
     setIsLoading(true);
     try {
-      const request: UpdateIdeaRequest = {
+      await updateIdea(idea.id, {
         text: editText.trim(),
         description: editDescription.trim() || undefined,
         categoryId:
           editCategoryId && editCategoryId !== "none"
             ? editCategoryId
             : undefined,
-      };
-
-      const response = await fetch(`/api/ideas/${idea.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
       });
 
-      if (response.ok) {
-        toast({
-          title: "¡Idea actualizada!",
-          description: "Los cambios se han guardado exitosamente.",
-        });
-        setIsEditing(false);
-        fetchIdea();
-      } else {
-        throw new Error("Failed to update idea");
-      }
+      toast({
+        title: "¡Idea actualizada!",
+        description: "Los cambios se han guardado exitosamente.",
+      });
+      setIsEditing(false);
+      fetchIdea(selectedGroup.id);
     } catch (error) {
+      console.error("Error saving idea:", error);
       toast({
         title: "Error",
         description: "No se pudo guardar la idea. Inténtalo de nuevo.",
@@ -173,20 +193,15 @@ export default function IdeaDetail() {
     if (!idea) return;
 
     try {
-      const response = await fetch(`/api/ideas/${idea.id}`, {
-        method: "DELETE",
-      });
+      await deleteIdea(idea.id);
 
-      if (response.ok) {
-        toast({
-          title: "Idea eliminada",
-          description: "La idea se ha eliminado exitosamente.",
-        });
-        navigate("/ideas");
-      } else {
-        throw new Error("Failed to delete idea");
-      }
+      toast({
+        title: "Idea eliminada",
+        description: "La idea se ha eliminado exitosamente.",
+      });
+      navigate("/ideas");
     } catch (error) {
+      console.error("Error deleting idea:", error);
       toast({
         title: "Error",
         description: "No se pudo eliminar la idea. Inténtalo de nuevo.",
@@ -204,10 +219,13 @@ export default function IdeaDetail() {
     setIsEditing(false);
   };
 
-  if (!idea) {
+  if (loading || !user || !selectedGroup || !idea) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <div className="flex items-center gap-3 text-gray-600">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando idea...</span>
+        </div>
       </div>
     );
   }

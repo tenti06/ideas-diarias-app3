@@ -19,82 +19,143 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
-import {
-  Idea,
-  Category,
-  GetIdeasResponse,
-  GetCategoriesResponse,
-} from "@shared/api";
+import { Idea, Category } from "@shared/api";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import {
+  getGroupIdeas,
+  getGroupCategories,
+  updateIdea,
+  deleteIdea,
+  completeIdea,
+} from "@/lib/firebase-services";
 
 export default function IdeasList() {
+  const { user, loading } = useAuth();
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedIdeas, setSelectedIdeas] = useState<Set<string>>(new Set());
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"all" | "pending" | "completed">("pending");
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchIdeas();
-    fetchCategories();
-  }, []);
+    if (loading) return;
 
-  const fetchIdeas = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const groupData = localStorage.getItem("selectedGroup");
+    if (!groupData) {
+      navigate("/groups");
+      return;
+    }
+
     try {
-      const response = await fetch("/api/ideas");
-      const data = (await response.json()) as GetIdeasResponse;
-      setIdeas(data.ideas);
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      fetchIdeas(group.id);
+      fetchCategories(group.id);
+    } catch (error) {
+      navigate("/groups");
+    }
+  }, [user, loading, navigate]);
+
+  const fetchIdeas = async (groupId: string) => {
+    try {
+      setIsLoading(true);
+      const groupIdeas = await getGroupIdeas(groupId);
+      setIdeas(groupIdeas);
     } catch (error) {
       console.error("Error fetching ideas:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (groupId: string) => {
     try {
-      const response = await fetch("/api/categories");
-      const data = (await response.json()) as GetCategoriesResponse;
-      setCategories(data.categories);
+      const groupCategories = await getGroupCategories(groupId);
+      setCategories(groupCategories);
       // Open all categories by default
-      setOpenCategories(new Set(data.categories.map((cat) => cat.id)));
+      setOpenCategories(new Set(groupCategories.map((cat) => cat.id)));
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast({
+        title: "Error",
+        description:
+          "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 
   const toggleIdeaCompletion = async (idea: Idea) => {
+    if (!user || !selectedGroup) return;
+
     try {
       if (!idea.completed) {
         // Complete the idea
-        await fetch("/api/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ideaId: idea.id,
-            date: new Date().toISOString().split("T")[0],
-          }),
+        await completeIdea(
+          user.id,
+          idea.id,
+          new Date().toISOString().split("T")[0],
+        );
+        toast({
+          title: "¡Idea completada!",
+          description: "La idea ha sido marcada como completada.",
         });
       } else {
         // Uncomplete the idea
-        await fetch(`/api/ideas/${idea.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ completed: false, dateCompleted: undefined }),
+        await updateIdea(idea.id, {
+          completed: false,
+          dateCompleted: undefined,
+        });
+        toast({
+          title: "Idea reactivada",
+          description: "La idea ha sido marcada como pendiente.",
         });
       }
-      fetchIdeas();
+      fetchIdeas(selectedGroup.id);
     } catch (error) {
       console.error("Error toggling idea completion:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la idea. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 
-  const deleteIdea = async (ideaId: string) => {
+  const handleDeleteIdea = async (ideaId: string) => {
+    if (!selectedGroup) return;
+
     try {
-      await fetch(`/api/ideas/${ideaId}`, { method: "DELETE" });
-      fetchIdeas();
+      await deleteIdea(ideaId);
+      toast({
+        title: "Idea eliminada",
+        description: "La idea ha sido eliminada exitosamente.",
+      });
+      fetchIdeas(selectedGroup.id);
     } catch (error) {
       console.error("Error deleting idea:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la idea. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -131,6 +192,18 @@ export default function IdeasList() {
   const uncategorizedIdeas = filteredIdeas.filter(
     (idea) => !idea.categoryId || idea.categoryId === "default",
   );
+
+  // Loading state
+  if (loading || !user || !selectedGroup || isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando ideas...</span>
+        </div>
+      </div>
+    );
+  }
 
   const IdeaItem = ({ idea }: { idea: Idea }) => (
     <Card
@@ -179,6 +252,11 @@ export default function IdeasList() {
                     {idea.description}
                   </p>
                 )}
+                {idea.createdByUser && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Por {idea.createdByUser.name}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -195,7 +273,7 @@ export default function IdeasList() {
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteIdea(idea.id);
+                    handleDeleteIdea(idea.id);
                   }}
                   className="text-red-500 hover:text-red-700 hover:bg-red-50"
                 >

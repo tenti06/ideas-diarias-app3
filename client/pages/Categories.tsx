@@ -21,15 +21,17 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import {
-  Category,
-  CreateCategoryRequest,
-  UpdateCategoryRequest,
-  GetCategoriesResponse,
-  GetIdeasResponse,
-} from "@shared/api";
+import { Category, Idea } from "@shared/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import {
+  getGroupCategories,
+  getGroupIdeas,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from "@/lib/firebase-services";
 
 const predefinedColors = [
   "#3B82F6", // Blue
@@ -47,39 +49,69 @@ const predefinedColors = [
 ];
 
 export default function Categories() {
+  const { user, loading } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [ideas, setIdeas] = useState<any[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState(predefinedColors[0]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchCategories();
-    fetchIdeas();
-  }, []);
+    if (loading) return;
 
-  const fetchCategories = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const groupData = localStorage.getItem("selectedGroup");
+    if (!groupData) {
+      navigate("/groups");
+      return;
+    }
+
     try {
-      const response = await fetch("/api/categories");
-      const data = (await response.json()) as GetCategoriesResponse;
-      setCategories(data.categories);
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      fetchCategories(group.id);
+      fetchIdeas(group.id);
+    } catch (error) {
+      navigate("/groups");
+    }
+  }, [user, loading, navigate]);
+
+  const fetchCategories = async (groupId: string) => {
+    try {
+      const groupCategories = await getGroupCategories(groupId);
+      setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast({
+        title: "Error",
+        description:
+          "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 
-  const fetchIdeas = async () => {
+  const fetchIdeas = async (groupId: string) => {
     try {
-      const response = await fetch("/api/ideas");
-      const data = (await response.json()) as GetIdeasResponse;
-      setIdeas(data.ideas);
+      const groupIdeas = await getGroupIdeas(groupId);
+      setIdeas(groupIdeas);
     } catch (error) {
       console.error("Error fetching ideas:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -93,45 +125,31 @@ export default function Categories() {
   };
 
   const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
+    if (!newCategoryName.trim() || !user || !selectedGroup) return;
 
     setIsLoading(true);
     try {
-      const groupData = localStorage.getItem('selectedGroup');
-      if (!groupData) {
-        throw new Error('No se ha seleccionado ningún grupo');
-      }
-      const group = JSON.parse(groupData);
+      await createCategory(
+        user.id,
+        selectedGroup.id,
+        newCategoryName.trim(),
+        newCategoryColor,
+      );
 
-      const request: CreateCategoryRequest = {
-        name: newCategoryName.trim(),
-        color: newCategoryColor,
-        groupId: group.id,
-      };
-
-      const response = await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
+      toast({
+        title: "¡Categoría creada!",
+        description: "La nueva categoría ha sido creada exitosamente.",
       });
 
-      if (response.ok) {
-        toast({
-          title: "¡Categoría creada!",
-          description: "La nueva categoría ha sido creada exitosamente.",
-        });
+      // Disparar evento para que otros componentes se actualicen
+      window.dispatchEvent(new Event("categoryCreated"));
 
-        // Disparar evento para que otros componentes se actualicen
-        window.dispatchEvent(new Event('categoryCreated'));
-
-        setNewCategoryName("");
-        setNewCategoryColor(predefinedColors[0]);
-        setShowCreateDialog(false);
-        fetchCategories();
-      } else {
-        throw new Error("Failed to create category");
-      }
+      setNewCategoryName("");
+      setNewCategoryColor(predefinedColors[0]);
+      setShowCreateDialog(false);
+      fetchCategories(selectedGroup.id);
     } catch (error) {
+      console.error("Error creating category:", error);
       toast({
         title: "Error",
         description: "No se pudo crear la categoría. Inténtalo de nuevo.",
@@ -143,36 +161,30 @@ export default function Categories() {
   };
 
   const handleEditCategory = async () => {
-    if (!editingCategory || !newCategoryName.trim()) return;
+    if (!editingCategory || !newCategoryName.trim() || !selectedGroup) return;
 
     setIsLoading(true);
     try {
-      const request: UpdateCategoryRequest = {
+      await updateCategory(editingCategory.id, {
         name: newCategoryName.trim(),
         color: newCategoryColor,
-      };
-
-      const response = await fetch(`/api/categories/${editingCategory.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
       });
 
-      if (response.ok) {
-        toast({
-          title: "¡Categoría actualizada!",
-          description: "La categoría ha sido actualizada exitosamente.",
-        });
+      toast({
+        title: "¡Categoría actualizada!",
+        description: "La categoría ha sido actualizada exitosamente.",
+      });
 
-        setEditingCategory(null);
-        setNewCategoryName("");
-        setNewCategoryColor(predefinedColors[0]);
-        setShowEditDialog(false);
-        fetchCategories();
-      } else {
-        throw new Error("Failed to update category");
-      }
+      // Disparar evento para que otros componentes se actualicen
+      window.dispatchEvent(new Event("categoryCreated"));
+
+      setEditingCategory(null);
+      setNewCategoryName("");
+      setNewCategoryColor(predefinedColors[0]);
+      setShowEditDialog(false);
+      fetchCategories(selectedGroup.id);
     } catch (error) {
+      console.error("Error updating category:", error);
       toast({
         title: "Error",
         description: "No se pudo actualizar la categoría. Inténtalo de nuevo.",
@@ -184,7 +196,10 @@ export default function Categories() {
   };
 
   const handleDeleteCategory = async (category: Category) => {
-    if (category.id === "default") {
+    if (!selectedGroup) return;
+
+    // Check if it's a default category by name (since Firebase categories don't have fixed IDs)
+    if (category.name === "Ideas Generales") {
       toast({
         title: "No se puede eliminar",
         description: "La categoría por defecto no se puede eliminar.",
@@ -197,26 +212,25 @@ export default function Categories() {
     if (ideasCount > 0) {
       toast({
         title: "Categoría en uso",
-        description: `Esta categoría tiene ${ideasCount} ideas. Las ideas se moverán a "Ideas Generales".`,
+        description: `Esta categoría tiene ${ideasCount} ideas. Las ideas se moverán a la categoría por defecto.`,
       });
     }
 
     try {
-      const response = await fetch(`/api/categories/${category.id}`, {
-        method: "DELETE",
+      await deleteCategory(category.id);
+
+      toast({
+        title: "¡Categoría eliminada!",
+        description: "La categoría ha sido eliminada exitosamente.",
       });
 
-      if (response.ok) {
-        toast({
-          title: "¡Categoría eliminada!",
-          description: "La categoría ha sido eliminada exitosamente.",
-        });
-        fetchCategories();
-        fetchIdeas();
-      } else {
-        throw new Error("Failed to delete category");
-      }
+      // Disparar evento para que otros componentes se actualicen
+      window.dispatchEvent(new Event("categoryCreated"));
+
+      fetchCategories(selectedGroup.id);
+      fetchIdeas(selectedGroup.id);
     } catch (error) {
+      console.error("Error deleting category:", error);
       toast({
         title: "Error",
         description: "No se pudo eliminar la categoría. Inténtalo de nuevo.",
@@ -239,6 +253,18 @@ export default function Categories() {
     setNewCategoryName("");
     setNewCategoryColor(predefinedColors[0]);
   };
+
+  // Loading state
+  if (loading || !user || !selectedGroup) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando categorías...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -299,7 +325,7 @@ export default function Categories() {
         <div className="space-y-3">
           {categories.map((category) => {
             const ideasCount = getIdeasCountForCategory(category.id);
-            const isDefault = category.id === "default";
+            const isDefault = category.name === "Ideas Generales";
 
             return (
               <Card
