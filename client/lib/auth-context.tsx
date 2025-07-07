@@ -94,9 +94,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // User info is handled in the onAuthStateChanged listener
       console.log("Login successful:", result.user.displayName);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing in with Google:", error);
       setLoading(false);
+
+      // Provide more specific error information
+      if (error.code === "auth/unauthorized-domain") {
+        throw new Error(
+          "Este dominio no está autorizado en Firebase. Contacta al administrador para añadir el dominio a la lista de dominios autorizados.",
+        );
+      }
+
       throw error;
     }
   };

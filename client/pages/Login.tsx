@@ -30,10 +30,26 @@ export default function Login() {
       navigate("/groups");
     } catch (error: any) {
       console.error("Login error:", error);
+
+      let errorMessage = "No se pudo iniciar sesión. Inténtalo de nuevo.";
+
+      if (error.code === "auth/unauthorized-domain") {
+        errorMessage =
+          "Este dominio no está autorizado para iniciar sesión. Por favor contacta al administrador.";
+      } else if (error.code === "auth/popup-blocked") {
+        errorMessage =
+          "El navegador bloqueó la ventana emergente. Permite las ventanas emergentes e inténtalo de nuevo.";
+      } else if (error.code === "auth/popup-closed-by-user") {
+        errorMessage = "Proceso de autenticación cancelado.";
+      } else if (error.code === "auth/network-request-failed") {
+        errorMessage = "Error de conexión. Verifica tu conexión a internet.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Error al iniciar sesión",
-        description:
-          error.message || "No se pudo iniciar sesión. Inténtalo de nuevo.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

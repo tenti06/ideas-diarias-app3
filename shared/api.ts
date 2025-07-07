@@ -60,6 +60,8 @@ export interface Category {
   order: number;
   groupId: string;
   createdBy: string;
+  icon?: string; // Puede ser emoji o URL de imagen
+  dateCreated: string;
 }
 
 export interface DailyCompletion {

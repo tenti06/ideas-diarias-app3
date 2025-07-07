@@ -71,58 +71,71 @@ export const createGroup = async (
 export const getUserGroups = async (
   userId: string,
 ): Promise<GroupWithMembers[]> => {
-  // Get user's memberships
-  const membershipsQuery = query(
-    collection(db, "groupMembers"),
-    where("userId", "==", userId),
-  );
-  const membershipsSnapshot = await getDocs(membershipsQuery);
-
-  const groups: GroupWithMembers[] = [];
-
-  for (const membershipDoc of membershipsSnapshot.docs) {
-    const membership = {
-      id: membershipDoc.id,
-      ...membershipDoc.data(),
-    } as GroupMember;
-
-    // Get group details
-    const groupDoc = await getDoc(doc(db, "groups", membership.groupId));
-    if (!groupDoc.exists()) continue;
-
-    const groupData = { id: groupDoc.id, ...groupDoc.data() } as Group;
-
-    // Get all members for this group
-    const allMembersQuery = query(
+  try {
+    // Get user's memberships
+    const membershipsQuery = query(
       collection(db, "groupMembers"),
-      where("groupId", "==", membership.groupId),
+      where("userId", "==", userId),
     );
-    const allMembersSnapshot = await getDocs(allMembersQuery);
+    const membershipsSnapshot = await getDocs(membershipsQuery);
 
-    const members = [];
-    for (const memberDoc of allMembersSnapshot.docs) {
-      const member = { id: memberDoc.id, ...memberDoc.data() } as GroupMember;
+    const groups: GroupWithMembers[] = [];
 
-      // Get user data for each member
-      const userDoc = await getDoc(doc(db, "users", member.userId));
-      if (userDoc.exists()) {
-        const userData = { id: userDoc.id, ...userDoc.data() } as User;
-        members.push({ ...member, user: userData });
+    for (const membershipDoc of membershipsSnapshot.docs) {
+      const membership = {
+        id: membershipDoc.id,
+        ...membershipDoc.data(),
+      } as GroupMember;
+
+      // Get group details
+      const groupDoc = await getDoc(doc(db, "groups", membership.groupId));
+      if (!groupDoc.exists()) continue;
+
+      const groupData = { id: groupDoc.id, ...groupDoc.data() } as Group;
+
+      // Get all members for this group
+      const allMembersQuery = query(
+        collection(db, "groupMembers"),
+        where("groupId", "==", membership.groupId),
+      );
+      const allMembersSnapshot = await getDocs(allMembersQuery);
+
+      const members = [];
+      for (const memberDoc of allMembersSnapshot.docs) {
+        const member = { id: memberDoc.id, ...memberDoc.data() } as GroupMember;
+
+        // Get user data for each member
+        const userDoc = await getDoc(doc(db, "users", member.userId));
+        if (userDoc.exists()) {
+          const userData = { id: userDoc.id, ...userDoc.data() } as User;
+          members.push({ ...member, user: userData });
+        }
       }
+
+      const groupWithMembers: GroupWithMembers = {
+        ...groupData,
+        members,
+        isOwner: groupData.ownerId === userId,
+        userRole: membership.role,
+        memberCount: members.length,
+      };
+
+      groups.push(groupWithMembers);
     }
 
-    const groupWithMembers: GroupWithMembers = {
-      ...groupData,
-      members,
-      isOwner: groupData.ownerId === userId,
-      userRole: membership.role,
-      memberCount: members.length,
-    };
-
-    groups.push(groupWithMembers);
+    return groups;
+  } catch (error: any) {
+    console.error("Error fetching user groups:", error);
+    if (
+      error.code === "unavailable" ||
+      error.message?.includes("Failed to fetch")
+    ) {
+      throw new Error(
+        "No se puede conectar a Firebase. Verifica tu conexión a internet.",
+      );
+    }
+    throw error;
   }
-
-  return groups;
 };
 
 export const updateGroup = async (
@@ -268,31 +281,48 @@ export const createIdea = async (
 };
 
 export const getGroupIdeas = async (groupId: string): Promise<Idea[]> => {
-  // Simplificar consulta - solo filtrar por groupId, ordenar en memoria
-  const ideasQuery = query(
-    collection(db, "ideas"),
-    where("groupId", "==", groupId),
-  );
-  const ideasSnapshot = await getDocs(ideasQuery);
+  try {
+    // Simplificar consulta - solo filtrar por groupId, ordenar en memoria
+    const ideasQuery = query(
+      collection(db, "ideas"),
+      where("groupId", "==", groupId),
+    );
+    const ideasSnapshot = await getDocs(ideasQuery);
 
-  const ideas: Idea[] = [];
-  for (const ideaDoc of ideasSnapshot.docs) {
-    const ideaData = { id: ideaDoc.id, ...ideaDoc.data() } as Idea;
+    const ideas: Idea[] = [];
+    for (const ideaDoc of ideasSnapshot.docs) {
+      const ideaData = { id: ideaDoc.id, ...ideaDoc.data() } as Idea;
 
-    // Get creator info
-    const creatorDoc = await getDoc(doc(db, "users", ideaData.createdBy));
-    if (creatorDoc.exists()) {
-      ideaData.createdByUser = {
-        id: creatorDoc.id,
-        ...creatorDoc.data(),
-      } as User;
+      // Get creator info
+      try {
+        const creatorDoc = await getDoc(doc(db, "users", ideaData.createdBy));
+        if (creatorDoc.exists()) {
+          ideaData.createdByUser = {
+            id: creatorDoc.id,
+            ...creatorDoc.data(),
+          } as User;
+        }
+      } catch (error) {
+        console.warn("Could not fetch creator info for idea:", ideaData.id);
+      }
+
+      ideas.push(ideaData);
     }
 
-    ideas.push(ideaData);
+    // Ordenar en memoria para evitar índice compuesto
+    return ideas.sort((a, b) => (a.order || 0) - (b.order || 0));
+  } catch (error: any) {
+    console.error("Error fetching group ideas:", error);
+    if (
+      error.code === "unavailable" ||
+      error.message?.includes("Failed to fetch")
+    ) {
+      throw new Error(
+        "No se puede conectar a Firebase. Verifica tu conexión a internet.",
+      );
+    }
+    throw error;
   }
-
-  // Ordenar en memoria para evitar índice compuesto
-  return ideas.sort((a, b) => (a.order || 0) - (b.order || 0));
 };
 
 export const updateIdea = async (
@@ -342,10 +372,12 @@ export const createCategory = async (
   groupId: string,
   name: string,
   color: string,
+  icon?: string,
 ): Promise<string> => {
   const categoryData = {
     name,
     color,
+    icon: icon || "📁",
     order: Date.now(), // Usar timestamp como orden simplificado
     groupId,
     createdBy: userId,
@@ -359,20 +391,33 @@ export const createCategory = async (
 export const getGroupCategories = async (
   groupId: string,
 ): Promise<Category[]> => {
-  // Simplificar consulta - solo filtrar por groupId, ordenar en memoria
-  const categoriesQuery = query(
-    collection(db, "categories"),
-    where("groupId", "==", groupId),
-  );
-  const categoriesSnapshot = await getDocs(categoriesQuery);
+  try {
+    // Simplificar consulta - solo filtrar por groupId, ordenar en memoria
+    const categoriesQuery = query(
+      collection(db, "categories"),
+      where("groupId", "==", groupId),
+    );
+    const categoriesSnapshot = await getDocs(categoriesQuery);
 
-  const categories = categoriesSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Category[];
+    const categories = categoriesSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Category[];
 
-  // Ordenar en memoria para evitar índice compuesto
-  return categories.sort((a, b) => (a.order || 0) - (b.order || 0));
+    // Ordenar en memoria para evitar índice compuesto
+    return categories.sort((a, b) => (a.order || 0) - (b.order || 0));
+  } catch (error: any) {
+    console.error("Error fetching group categories:", error);
+    if (
+      error.code === "unavailable" ||
+      error.message?.includes("Failed to fetch")
+    ) {
+      throw new Error(
+        "No se puede conectar a Firebase. Verifica tu conexión a internet.",
+      );
+    }
+    throw error;
+  }
 };
 
 export const updateCategory = async (

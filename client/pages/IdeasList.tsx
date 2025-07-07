@@ -9,6 +9,7 @@ import {
   Trash2,
   FolderPlus,
   Upload,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,12 +26,13 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import {
-  getGroupIdeas,
-  getGroupCategories,
-  updateIdea,
-  deleteIdea,
-  completeIdea,
-} from "@/lib/firebase-services";
+  safeGetGroupIdeas,
+  safeGetGroupCategories,
+  safeUpdateIdea,
+  safeDeleteIdea,
+  safeCompleteIdea,
+  isDemoMode,
+} from "@/lib/data-service";
 
 export default function IdeasList() {
   const { user, loading } = useAuth();
@@ -74,7 +76,7 @@ export default function IdeasList() {
     try {
       setIsLoading(true);
       console.log("Cargando ideas para grupo:", groupId);
-      const groupIdeas = await getGroupIdeas(groupId);
+      const groupIdeas = await safeGetGroupIdeas(groupId);
       console.log("Ideas cargadas:", groupIdeas.length);
       setIdeas(groupIdeas);
     } catch (error) {
@@ -92,7 +94,7 @@ export default function IdeasList() {
   const fetchCategories = async (groupId: string) => {
     try {
       console.log("Cargando categorías para grupo:", groupId);
-      const groupCategories = await getGroupCategories(groupId);
+      const groupCategories = await safeGetGroupCategories(groupId);
       console.log("Categorías cargadas:", groupCategories.length);
       setCategories(groupCategories);
       // Open all categories by default
@@ -114,7 +116,7 @@ export default function IdeasList() {
     try {
       if (!idea.completed) {
         // Complete the idea
-        await completeIdea(
+        await safeCompleteIdea(
           user.id,
           idea.id,
           new Date().toISOString().split("T")[0],
@@ -125,7 +127,7 @@ export default function IdeasList() {
         });
       } else {
         // Uncomplete the idea
-        await updateIdea(idea.id, {
+        await safeUpdateIdea(idea.id, {
           completed: false,
           dateCompleted: undefined,
         });
@@ -149,7 +151,7 @@ export default function IdeasList() {
     if (!selectedGroup) return;
 
     try {
-      await deleteIdea(ideaId);
+      await safeDeleteIdea(ideaId);
       toast({
         title: "Idea eliminada",
         description: "La idea ha sido eliminada exitosamente.",
@@ -213,66 +215,55 @@ export default function IdeasList() {
 
   const IdeaItem = ({ idea }: { idea: Idea }) => (
     <Card
-      key={idea.id}
-      className="border-l-4 hover:shadow-md transition-all cursor-pointer"
-      style={{
-        borderLeftColor:
-          categories.find((c) => c.id === idea.categoryId)?.color || "#3B82F6",
-      }}
+      className="group relative border-0 bg-white/70 hover:bg-white hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden"
       onClick={() => navigate(`/ideas/${idea.id}`)}
     >
       <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-4">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleIdeaCompletion(idea);
+              handleToggleComplete(idea);
             }}
-            className="mt-1 flex-shrink-0"
+            className="mt-1 flex-shrink-0 hover:scale-110 transition-transform duration-200"
           >
             {idea.completed ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <CheckCircle className="h-6 w-6 text-green-500" />
             ) : (
-              <Circle className="h-5 w-5 text-gray-400 hover:text-blue-500" />
+              <Circle className="h-6 w-6 text-gray-400 hover:text-blue-500" />
             )}
           </button>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2">
+                {idea.priority && (
+                  <span className="text-yellow-500 text-lg">⭐</span>
+                )}
                 <h3
                   className={cn(
-                    "font-medium text-gray-900",
+                    "font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-200",
                     idea.completed && "line-through text-gray-500",
                   )}
                 >
                   {idea.text}
                 </h3>
-                {idea.description && (
-                  <p
-                    className={cn(
-                      "text-sm text-gray-600 mt-1",
-                      idea.completed && "line-through text-gray-400",
-                    )}
-                  >
-                    {idea.description}
-                  </p>
-                )}
-                {idea.createdByUser && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    Por {idea.createdByUser.name}
-                  </p>
-                )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <Checkbox
                   checked={selectedIdeas.has(idea.id)}
-                  onCheckedChange={(e) => {
-                    e.preventDefault?.();
-                    toggleIdeaSelection(idea.id);
+                  onCheckedChange={(checked) => {
+                    const newSelected = new Set(selectedIdeas);
+                    if (checked) {
+                      newSelected.add(idea.id);
+                    } else {
+                      newSelected.delete(idea.id);
+                    }
+                    setSelectedIdeas(newSelected);
                   }}
                   onClick={(e) => e.stopPropagation()}
+                  className="scale-110"
                 />
                 <Button
                   variant="ghost"
@@ -281,235 +272,308 @@ export default function IdeasList() {
                     e.stopPropagation();
                     handleDeleteIdea(idea.id);
                   }}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full p-1 h-8 w-8"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
 
-            {idea.completed && idea.dateCompleted && (
-              <div className="mt-2">
-                <Badge variant="secondary" className="text-xs">
-                  Completada{" "}
-                  {new Date(idea.dateCompleted).toLocaleDateString("es-ES")}
-                </Badge>
-              </div>
+            {idea.description && (
+              <p
+                className={cn(
+                  "text-sm text-gray-600 mb-3 leading-relaxed",
+                  idea.completed && "line-through text-gray-400",
+                )}
+              >
+                {idea.description}
+              </p>
             )}
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                📅 {new Date(idea.dateCreated).toLocaleDateString("es-ES")}
+              </span>
+
+              {idea.completed && idea.dateCompleted && (
+                <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  ✅ {new Date(idea.dateCompleted).toLocaleDateString("es-ES")}
+                </span>
+              )}
+
+              {idea.createdByUser && (
+                <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                  👤 {idea.createdByUser.name}
+                </span>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Barra de color de categoría en la parte inferior */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-1 opacity-60"
+          style={{
+            backgroundColor:
+              categories.find((c) => c.id === idea.categoryId)?.color ||
+              "#3B82F6",
+          }}
+        />
       </CardContent>
     </Card>
   );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
+      {/* Header moderno y responsivo */}
+      <div className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate("/")}
-                className="p-2"
+                className="flex items-center gap-2 hover:bg-blue-50"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Volver</span>
               </Button>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Gestión de Ideas
-              </h1>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    Gestión de Ideas
+                  </h1>
+                  {isDemoMode() && (
+                    <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2 py-1 rounded-full">
+                      Demo
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-600">
+                  {selectedGroup?.name || "Grupo"}
+                </p>
+              </div>
             </div>
-            <Button
-              onClick={() => navigate("/add")}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2"
-            >
-              <Plus className="h-5 w-5" />
-              Nueva Idea
-            </Button>
+
+            {/* Botones de acción responsivos */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <Button
+                onClick={() => navigate("/add")}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                size="sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Nueva</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/import")}
+                className="hover:bg-blue-50"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Importar</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/categories")}
+                className="hover:bg-purple-50"
+              >
+                <FolderPlus className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Categorías</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/group")}
+                className="hover:bg-indigo-50"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden lg:inline ml-2">Grupo</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Pestañas de filtro mejoradas */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
+            <div className="flex bg-white rounded-xl p-1 shadow-sm border">
+              <button
+                onClick={() => setView("pending")}
+                className={cn(
+                  "px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  view === "pending"
+                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                )}
+              >
+                Pendientes{" "}
+                <span className="ml-1">
+                  ({filteredIdeas.filter((i) => !i.completed).length})
+                </span>
+              </button>
+              <button
+                onClick={() => setView("completed")}
+                className={cn(
+                  "px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  view === "completed"
+                    ? "bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                )}
+              >
+                Completadas{" "}
+                <span className="ml-1">
+                  ({filteredIdeas.filter((i) => i.completed).length})
+                </span>
+              </button>
+              <button
+                onClick={() => setView("all")}
+                className={cn(
+                  "px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  view === "all"
+                    ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                )}
+              >
+                Todas <span className="ml-1">({filteredIdeas.length})</span>
+              </button>
+            </div>
+
+            {/* Acciones masivas */}
+            {selectedIdeas.size > 0 && (
+              <div className="flex items-center gap-3 bg-white rounded-lg px-4 py-2 shadow-sm border">
+                <span className="text-sm text-gray-600">
+                  {selectedIdeas.size} seleccionadas
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Eliminar</span>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        <div className="flex items-center justify-between">
-          {/* View Toggle */}
-          <div className="flex bg-white rounded-lg p-1 shadow-sm">
-            <Button
-              variant={view === "pending" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setView("pending")}
-              className="px-6 py-2"
-            >
-              Pendientes ({ideas.filter((i) => !i.completed).length})
-            </Button>
-            <Button
-              variant={view === "completed" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setView("completed")}
-              className="px-6 py-2"
-            >
-              Completadas ({ideas.filter((i) => i.completed).length})
-            </Button>
-            <Button
-              variant={view === "all" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setView("all")}
-              className="px-6 py-2"
-            >
-              Todas ({ideas.length})
-            </Button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button
-              onClick={() => navigate("/categories")}
-              variant="outline"
-              className="flex items-center gap-2 px-6 py-2 shadow-sm"
-            >
-              <FolderPlus className="h-4 w-4" />
-              Gestionar Categorías
-            </Button>
-            <Button
-              onClick={() => navigate("/import")}
-              variant="outline"
-              className="flex items-center gap-2 px-6 py-2 shadow-sm"
-            >
-              <Upload className="h-4 w-4" />
-              Importar Ideas
-            </Button>
-            <Button
-              onClick={() => navigate("/group")}
-              variant="outline"
-              className="flex items-center gap-2 px-6 py-2 shadow-sm"
-            >
-              <Users className="h-4 w-4" />
-              Configurar Grupo
-            </Button>
-          </div>
-        </div>
-
-        {/* Selected Ideas Actions */}
-        {selectedIdeas.size > 0 && (
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-blue-900">
-                  {selectedIdeas.size} idea(s) seleccionada(s)
-                </span>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline">
-                    Mover a Categoría
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedIdeas(new Set())}
-                  >
-                    Limpiar
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Categories and Ideas */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {/* Default/Uncategorized Ideas */}
-          {uncategorizedIdeas.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-gray-900">Ideas Generales</h3>
-                <Badge variant="secondary">{uncategorizedIdeas.length}</Badge>
-              </div>
-              <div className="space-y-2">
-                {uncategorizedIdeas.map((idea) => (
-                  <IdeaItem key={idea.id} idea={idea} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Categorized Ideas */}
-          {categories
-            .filter((cat) => cat.id !== "default")
-            .map((category) => {
-              const categoryIdeas = getIdeasByCategory(category.id);
-              if (categoryIdeas.length === 0) return null;
-
-              return (
-                <Collapsible
-                  key={category.id}
-                  open={openCategories.has(category.id)}
-                  onOpenChange={() => toggleCategoryOpen(category.id)}
-                >
-                  <CollapsibleTrigger asChild>
-                    <Card
-                      className="cursor-pointer hover:shadow-md transition-shadow border-l-4"
-                      style={{ borderLeftColor: category.color }}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {openCategories.has(category.id) ? (
-                              <ChevronDown className="h-4 w-4 text-gray-500" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-gray-500" />
-                            )}
-                            <h3 className="font-medium text-gray-900">
-                              {category.name}
-                            </h3>
-                          </div>
-                          <Badge variant="secondary">
-                            {categoryIdeas.length}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-2 mt-2">
-                    {categoryIdeas.map((idea) => (
-                      <div key={idea.id} className="ml-4">
-                        <IdeaItem idea={idea} />
-                      </div>
-                    ))}
-                  </CollapsibleContent>
-                </Collapsible>
-              );
-            })}
-        </div>
-
-        {/* Empty State */}
-        {filteredIdeas.length === 0 && (
-          <Card className="border-dashed border-2 border-gray-200">
-            <CardContent className="p-8 text-center">
-              <div className="text-gray-400 mb-4">
-                <Circle className="h-12 w-12 mx-auto" />
-              </div>
-              <h3 className="font-medium text-gray-900 mb-2">
-                No hay ideas{" "}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {filteredIdeas.length === 0 ? (
+          <Card className="border-0 shadow-xl bg-white/50 backdrop-blur-sm">
+            <CardContent className="p-8 sm:p-12 text-center">
+              <div className="text-6xl sm:text-8xl mb-6">💡</div>
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
                 {view === "pending"
-                  ? "pendientes"
+                  ? "No hay ideas pendientes"
                   : view === "completed"
-                    ? "completadas"
-                    : ""}
+                    ? "No hay ideas completadas"
+                    : "No hay ideas aún"}
               </h3>
-              <p className="text-gray-600 text-sm mb-4">
+              <p className="text-gray-600 text-base sm:text-lg mb-6 max-w-md mx-auto">
                 {view === "pending"
-                  ? "¡Agrega algunas ideas para empezar!"
+                  ? "¡Agrega algunas ideas para empezar tu viaje creativo!"
                   : view === "completed"
-                    ? "Completa algunas ideas para verlas aquí"
-                    : "Agrega tu primera idea"}
+                    ? "Completa algunas ideas para verlas aquí y celebrar tus logros"
+                    : "Comienza agregando tu primera idea brillante"}
               </p>
-              <Button onClick={() => navigate("/add")}>
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Idea
+              <Button
+                onClick={() => navigate("/add")}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3"
+                size="lg"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Agregar Primera Idea
               </Button>
             </CardContent>
           </Card>
+        ) : (
+          <div className="space-y-6">
+            {/* Ideas sin categoría */}
+            {uncategorizedIdeas.length > 0 && (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-4 h-4 rounded-full bg-gray-400" />
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Ideas Generales
+                    </h3>
+                    <Badge
+                      variant="secondary"
+                      className="bg-gray-100 text-gray-800"
+                    >
+                      {uncategorizedIdeas.length}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {uncategorizedIdeas.map((idea) => (
+                      <IdeaItem key={idea.id} idea={idea} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Ideas por categoría */}
+            {categories
+              .filter((cat) => cat.id !== "default")
+              .map((category) => {
+                const categoryIdeas = getIdeasByCategory(category.id);
+                if (categoryIdeas.length === 0) return null;
+
+                return (
+                  <Collapsible
+                    key={category.id}
+                    open={openCategories.has(category.id)}
+                    onOpenChange={() => toggleCategoryOpen(category.id)}
+                  >
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/80 backdrop-blur-sm">
+                      <CollapsibleTrigger asChild>
+                        <CardContent className="p-6 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white transition-all duration-200 cursor-pointer">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              {openCategories.has(category.id) ? (
+                                <ChevronDown className="h-5 w-5 text-gray-400 transition-transform duration-200" />
+                              ) : (
+                                <ChevronRight className="h-5 w-5 text-gray-400 transition-transform duration-200" />
+                              )}
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-4 h-4 rounded-full shadow-sm"
+                                  style={{ backgroundColor: category.color }}
+                                />
+                                <h3 className="text-lg font-bold text-gray-900">
+                                  {category.name}
+                                </h3>
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-blue-100 text-blue-800"
+                                >
+                                  {categoryIdeas.length}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleTrigger>
+
+                      <CollapsibleContent>
+                        <div className="border-t border-gray-100 p-6 pt-0">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                            {categoryIdeas.map((idea) => (
+                              <IdeaItem key={idea.id} idea={idea} />
+                            ))}
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                );
+              })}
+          </div>
         )}
       </div>
     </div>

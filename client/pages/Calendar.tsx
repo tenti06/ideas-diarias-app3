@@ -98,10 +98,10 @@ export default function Calendar() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Header simplificado */}
       <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
@@ -110,45 +110,44 @@ export default function Calendar() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold text-gray-900">Calendario</h1>
-            <div className="w-10" />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Calendario</h1>
+              <p className="text-sm text-gray-600">Progreso diario</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* Calendar Card */}
-        <Card className="shadow-lg border-0">
-          <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-t-lg">
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Calendario principal */}
+        <Card className="shadow-lg border-0 mb-6">
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
             <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigateMonth("prev")}
-                className="text-white hover:bg-white/20 p-2"
+                className="text-white hover:bg-white/20 p-2 rounded-full"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5" />
               </Button>
-
-              <CardTitle className="text-center flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
+              <CardTitle className="text-lg font-bold text-center">
                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
               </CardTitle>
-
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigateMonth("next")}
-                className="text-white hover:bg-white/20 p-2"
+                className="text-white hover:bg-white/20 p-2 rounded-full"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
           </CardHeader>
 
           <CardContent className="p-4">
-            {/* Day headers */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
+            {/* Días de la semana */}
+            <div className="grid grid-cols-7 gap-1 mb-3">
               {dayNames.map((day) => (
                 <div
                   key={day}
@@ -159,7 +158,7 @@ export default function Calendar() {
               ))}
             </div>
 
-            {/* Calendar grid */}
+            {/* Grid del calendario */}
             <div className="grid grid-cols-7 gap-1">
               {getDaysInMonth(currentDate).map((date, index) => {
                 if (!date) {
@@ -179,23 +178,28 @@ export default function Calendar() {
                       setSelectedDate(isSelected ? null : dateString)
                     }
                     className={cn(
-                      "h-12 flex flex-col items-center justify-center text-sm border border-gray-200 rounded-lg transition-all",
+                      "h-12 flex flex-col items-center justify-center text-sm rounded-lg transition-all border-2 relative",
                       isToday &&
-                        "border-blue-500 bg-blue-50 text-blue-700 font-semibold",
-                      isSelected && "bg-purple-100 border-purple-300",
+                        "border-blue-500 bg-blue-100 text-blue-700 font-bold shadow-md",
+                      isSelected &&
+                        "border-purple-500 bg-purple-100 text-purple-700",
                       hasCompletions &&
                         !isToday &&
                         !isSelected &&
-                        "bg-green-50 border-green-200",
+                        "border-green-300 bg-green-50 text-green-700",
                       !hasCompletions &&
                         !isToday &&
                         !isSelected &&
-                        "hover:bg-gray-50",
+                        "border-gray-200 hover:border-gray-300 hover:bg-gray-50",
                     )}
                   >
-                    <span>{date.getDate()}</span>
+                    <span className="text-sm font-medium">
+                      {date.getDate()}
+                    </span>
                     {hasCompletions && (
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-0.5" />
+                      <div className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                        {completions.length}
+                      </div>
                     )}
                   </button>
                 );
@@ -204,9 +208,9 @@ export default function Calendar() {
           </CardContent>
         </Card>
 
-        {/* Selected Date Details */}
+        {/* Fecha seleccionada */}
         {selectedDate && (
-          <Card className="shadow-md border-l-4 border-l-purple-500">
+          <Card className="shadow-md border-l-4 border-l-blue-500 mb-6">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center justify-between">
                 <span>
@@ -214,14 +218,13 @@ export default function Calendar() {
                     "es-ES",
                     {
                       weekday: "long",
-                      year: "numeric",
-                      month: "long",
                       day: "numeric",
+                      month: "long",
                     },
                   )}
                 </span>
                 <Badge variant="secondary">
-                  {selectedDateCompletions.length} completada
+                  {selectedDateCompletions.length} idea
                   {selectedDateCompletions.length !== 1 ? "s" : ""}
                 </Badge>
               </CardTitle>
@@ -242,14 +245,12 @@ export default function Calendar() {
                           {completion.idea.description}
                         </p>
                       )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge
-                          variant="outline"
-                          className="text-xs border-green-300 text-green-700"
-                        >
-                          ✓ Completada
-                        </Badge>
-                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-xs border-green-300 text-green-700 mt-2"
+                      >
+                        ✓ Completada
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -265,14 +266,14 @@ export default function Calendar() {
           </Card>
         )}
 
-        {/* Stats Summary */}
-        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0">
+        {/* Estadísticas del mes */}
+        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0 mb-6">
           <CardContent className="p-4">
-            <h3 className="font-medium text-gray-900 mb-3">
-              📊 Resumen del Mes
+            <h3 className="font-medium text-gray-900 mb-3 text-center">
+              📊 Resumen de {monthNames[currentDate.getMonth()]}
             </h3>
             <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
+              <div className="text-center bg-white/70 rounded-lg p-3">
                 <div className="text-2xl font-bold text-blue-600">
                   {
                     Object.keys(calendarData).filter((date) => {
@@ -286,7 +287,7 @@ export default function Calendar() {
                 </div>
                 <div className="text-sm text-gray-600">Días Activos</div>
               </div>
-              <div className="text-center">
+              <div className="text-center bg-white/70 rounded-lg p-3">
                 <div className="text-2xl font-bold text-green-600">
                   {Object.entries(calendarData).reduce(
                     (total, [date, completions]) => {
@@ -308,21 +309,20 @@ export default function Calendar() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
+        {/* Navegación rápida */}
         <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={() => navigate("/")}
-            variant="outline"
-            className="flex items-center gap-2 justify-center"
+            className="bg-blue-500 hover:bg-blue-600 text-white"
           >
-            Hoy
+            🏠 Inicio
           </Button>
           <Button
             onClick={() => navigate("/ideas")}
             variant="outline"
-            className="flex items-center gap-2 justify-center"
+            className="border-purple-300 hover:bg-purple-50"
           >
-            Ver Ideas
+            💡 Ideas
           </Button>
         </div>
       </div>
