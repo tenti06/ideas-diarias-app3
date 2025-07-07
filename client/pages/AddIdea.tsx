@@ -46,8 +46,12 @@ export default function AddIdea() {
     try {
       const group = JSON.parse(groupData);
       setSelectedGroup(group);
-      fetchCategories(group.id);
+      // Only fetch data if we have both user and group
+      if (user && group.id) {
+        fetchCategories(group.id);
+      }
     } catch (error) {
+      console.error("Error parsing group data:", error);
       navigate("/groups");
     }
   }, [user, loading, navigate]);
@@ -60,7 +64,8 @@ export default function AddIdea() {
       console.error("Error fetching categories:", error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+        description:
+          "No se pudieron cargar las categorías. Inténtalo de nuevo.",
         variant: "destructive",
       });
     }
@@ -75,10 +80,10 @@ export default function AddIdea() {
     };
 
     // Escuchar el evento de creación de categoría
-    window.addEventListener('categoryCreated', handleCategoryCreated);
+    window.addEventListener("categoryCreated", handleCategoryCreated);
 
     return () => {
-      window.removeEventListener('categoryCreated', handleCategoryCreated);
+      window.removeEventListener("categoryCreated", handleCategoryCreated);
     };
   }, [selectedGroup, fetchCategories]);
 
@@ -95,7 +100,7 @@ export default function AddIdea() {
         description.trim() || undefined,
         categoryId && categoryId !== "none" ? categoryId : undefined,
       );
-      console.log('Idea creada con ID:', ideaId);
+      console.log("Idea creada con ID:", ideaId);
 
       toast({
         title: "¡Idea agregada!",

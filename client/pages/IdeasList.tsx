@@ -64,6 +64,7 @@ export default function IdeasList() {
       fetchIdeas(group.id);
       fetchCategories(group.id);
     } catch (error) {
+      console.error("Error parsing group data:", error);
       navigate("/groups");
     }
   }, [user, loading, navigate]);
