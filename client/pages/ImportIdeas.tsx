@@ -127,6 +127,7 @@ export default function ImportIdeas() {
       // Navigate to ideas list
       setTimeout(() => navigate("/ideas"), 1000);
     } catch (error) {
+      console.error("Error importing ideas:", error);
       toast({
         title: "Error",
         description: "No se pudieron importar las ideas. Inténtalo de nuevo.",
