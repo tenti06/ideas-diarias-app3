@@ -60,7 +60,6 @@ export default function IdeasList() {
         return;
       }
 
-<<<<<<< HEAD
       try {
         const group = JSON.parse(groupData);
         setSelectedGroup(group);
@@ -76,17 +75,6 @@ export default function IdeasList() {
     }, 100);
 
     return () => clearTimeout(timeoutId);
-=======
-    try {
-      const group = JSON.parse(groupData);
-      setSelectedGroup(group);
-      fetchIdeas(group.id);
-      fetchCategories(group.id);
-    } catch (error) {
-      console.error("Error parsing group data:", error);
-      navigate("/groups");
-    }
->>>>>>> origin/main
   }, [user, loading, navigate]);
 
   const fetchIdeas = async (groupId: string) => {
