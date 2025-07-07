@@ -103,39 +103,29 @@ export default function ImportIdeas() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || !user || !selectedGroup) return;
 
     setIsLoading(true);
     try {
-      const request: ImportIdeasRequest = {
-        text: text.trim(),
-        categoryId:
-          categoryId && categoryId !== "none" ? categoryId : undefined,
-      };
+      const importedCount = await importIdeas(
+        user.id,
+        selectedGroup.id,
+        text.trim(),
+        categoryId && categoryId !== "none" ? categoryId : undefined,
+      );
 
-      const response = await fetch("/api/ideas/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
+      toast({
+        title: "¡Ideas importadas!",
+        description: `Se importaron ${importedCount} ideas exitosamente.`,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        toast({
-          title: "¡Ideas importadas!",
-          description: `Se importaron ${result.imported} ideas exitosamente.`,
-        });
+      // Reset form
+      setText("");
+      setCategoryId("none");
+      setPreviewIdeas([]);
 
-        // Reset form
-        setText("");
-        setCategoryId("none");
-        setPreviewIdeas([]);
-
-        // Navigate to ideas list
-        setTimeout(() => navigate("/ideas"), 1000);
-      } else {
-        throw new Error("Failed to import ideas");
-      }
+      // Navigate to ideas list
+      setTimeout(() => navigate("/ideas"), 1000);
     } catch (error) {
       toast({
         title: "Error",
@@ -346,7 +336,7 @@ export default function ImportIdeas() {
                 <div className="bg-white rounded p-2 mt-1 text-xs text-gray-700 font-mono">
                   1. Stream de cocina - Preparar recetas fáciles en vivo
                   <br />
-                  2. Gaming retro - Jugar juegos clásicos con chat
+                  2. Gaming retro - Jugar juegos cl��sicos con chat
                   <br />
                   3. Tutorial dibujo - Enseñar técnicas básicas paso a paso
                 </div>
