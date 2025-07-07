@@ -97,9 +97,16 @@ export default function Categories() {
 
     setIsLoading(true);
     try {
+      const groupData = localStorage.getItem('selectedGroup');
+      if (!groupData) {
+        throw new Error('No se ha seleccionado ningún grupo');
+      }
+      const group = JSON.parse(groupData);
+
       const request: CreateCategoryRequest = {
         name: newCategoryName.trim(),
         color: newCategoryColor,
+        groupId: group.id,
       };
 
       const response = await fetch("/api/categories", {
@@ -113,6 +120,9 @@ export default function Categories() {
           title: "¡Categoría creada!",
           description: "La nueva categoría ha sido creada exitosamente.",
         });
+
+        // Disparar evento para que otros componentes se actualicen
+        window.dispatchEvent(new Event('categoryCreated'));
 
         setNewCategoryName("");
         setNewCategoryColor(predefinedColors[0]);

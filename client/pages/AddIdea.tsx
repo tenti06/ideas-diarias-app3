@@ -58,8 +58,29 @@ export default function AddIdea() {
       setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
   };
+
+  // Actualizar categorías cuando se crea una nueva
+  useEffect(() => {
+    const handleCategoryCreated = () => {
+      if (selectedGroup) {
+        fetchCategories(selectedGroup.id);
+      }
+    };
+
+    // Escuchar el evento de creación de categoría
+    window.addEventListener('categoryCreated', handleCategoryCreated);
+
+    return () => {
+      window.removeEventListener('categoryCreated', handleCategoryCreated);
+    };
+  }, [selectedGroup, fetchCategories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
