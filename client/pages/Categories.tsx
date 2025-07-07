@@ -92,12 +92,15 @@ export default function Categories() {
       setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
-      toast({
-        title: "Error",
-        description:
-          "No se pudieron cargar las categorías. Inténtalo de nuevo.",
-        variant: "destructive",
-      });
+      // Only show error toast if user is authenticated and has a group
+      if (user && selectedGroup) {
+        toast({
+          title: "Error",
+          description:
+            "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
