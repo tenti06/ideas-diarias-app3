@@ -120,38 +120,35 @@ export default function IdeaDetail() {
   };
 
   const toggleCompletion = async () => {
-    if (!idea) return;
+    if (!idea || !user || !selectedGroup) return;
 
     try {
       if (!idea.completed) {
         // Complete the idea
-        await fetch("/api/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ideaId: idea.id,
-            date: new Date().toISOString().split("T")[0],
-          }),
+        await completeIdea(
+          user.id,
+          idea.id,
+          new Date().toISOString().split("T")[0],
+        );
+        toast({
+          title: "¡Idea completada!",
+          description: "La idea se ha marcado como completada.",
         });
       } else {
         // Uncomplete the idea
-        await fetch(`/api/ideas/${idea.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ completed: false, dateCompleted: undefined }),
+        await updateIdea(idea.id, {
+          completed: false,
+          dateCompleted: undefined,
+        });
+        toast({
+          title: "Idea reactivada",
+          description: "La idea se ha movido a pendientes.",
         });
       }
 
-      fetchIdea(); // Refresh data
-      toast({
-        title: idea.completed
-          ? "Idea marcada como pendiente"
-          : "¡Idea completada!",
-        description: idea.completed
-          ? "La idea se ha movido a pendientes"
-          : "La idea se ha marcado como completada",
-      });
+      fetchIdea(selectedGroup.id); // Refresh data
     } catch (error) {
+      console.error("Error toggling completion:", error);
       toast({
         title: "Error",
         description: "No se pudo actualizar el estado de la idea.",
@@ -161,36 +158,27 @@ export default function IdeaDetail() {
   };
 
   const handleSave = async () => {
-    if (!idea || !editText.trim()) return;
+    if (!idea || !editText.trim() || !selectedGroup) return;
 
     setIsLoading(true);
     try {
-      const request: UpdateIdeaRequest = {
+      await updateIdea(idea.id, {
         text: editText.trim(),
         description: editDescription.trim() || undefined,
         categoryId:
           editCategoryId && editCategoryId !== "none"
             ? editCategoryId
             : undefined,
-      };
-
-      const response = await fetch(`/api/ideas/${idea.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
       });
 
-      if (response.ok) {
-        toast({
-          title: "¡Idea actualizada!",
-          description: "Los cambios se han guardado exitosamente.",
-        });
-        setIsEditing(false);
-        fetchIdea();
-      } else {
-        throw new Error("Failed to update idea");
-      }
+      toast({
+        title: "¡Idea actualizada!",
+        description: "Los cambios se han guardado exitosamente.",
+      });
+      setIsEditing(false);
+      fetchIdea(selectedGroup.id);
     } catch (error) {
+      console.error("Error saving idea:", error);
       toast({
         title: "Error",
         description: "No se pudo guardar la idea. Inténtalo de nuevo.",
