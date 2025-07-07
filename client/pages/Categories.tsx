@@ -92,10 +92,13 @@ export default function Categories() {
 
   const fetchCategories = async (groupId: string) => {
     try {
+      console.log("Fetching categories for group:", groupId, "User:", user?.id);
       const groupCategories = await getGroupCategories(groupId);
+      console.log("Categories loaded successfully:", groupCategories.length);
       setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      console.error("Error details:", error);
       // Only show error toast if user is authenticated and has a group
       if (user && selectedGroup) {
         toast({
