@@ -8,6 +8,7 @@ import {
   Palette,
   Save,
   X,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -275,59 +276,114 @@ export default function Categories() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="p-2"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-lg font-semibold text-gray-900">Categorías</h1>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowCreateDialog(true)}
-              className="p-2 text-blue-600"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(-1)}
+                className="p-2"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Gestión de Categorías
+              </h1>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => navigate("/group")}
+                variant="outline"
+                className="px-6 py-3 rounded-lg shadow-lg flex items-center gap-2"
+              >
+                <Users className="h-5 w-5" />
+                Configurar Grupo
+              </Button>
+              <Button
+                onClick={() => setShowCreateDialog(true)}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                Nueva Categoría
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* Header Card */}
-        <Card className="shadow-lg border-0">
-          <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-t-lg">
-            <CardTitle className="text-center flex items-center justify-center gap-2">
-              <Folder className="h-5 w-5" />
-              Gestión de Categorías
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600 mb-1">
-                {categories.length}
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Estadísticas */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-purple-500 to-pink-600">
+            <CardContent className="p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold mb-1">
+                    {categories.length}
+                  </div>
+                  <div className="text-purple-100">Categorías Total</div>
+                </div>
+                <Folder className="h-12 w-12 text-purple-200" />
               </div>
-              <div className="text-sm text-gray-600">Categorías Total</div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Add Category Button */}
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          className="w-full h-14 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium rounded-xl shadow-lg"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Crear Nueva Categoría
-        </Button>
+          <Card
+            className="shadow-lg border-0 bg-gradient-to-br from-blue-500 to-indigo-600 cursor-pointer hover:scale-105 transition-transform"
+            onClick={() => navigate("/ideas")}
+          >
+            <CardContent className="p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold mb-1">{ideas.length}</div>
+                  <div className="text-blue-100">Ideas Total</div>
+                  <div className="text-xs text-blue-200 mt-1">
+                    Clic para ver todas
+                  </div>
+                </div>
+                <div className="text-4xl">💡</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="shadow-lg border-0 bg-gradient-to-br from-green-500 to-emerald-600 cursor-pointer hover:scale-105 transition-transform"
+            onClick={() => {
+              // Ir a ideas con filtro de categorías en uso
+              navigate("/ideas", {
+                state: {
+                  filterType: "categorized",
+                  message: "Mostrando solo ideas con categorías asignadas",
+                },
+              });
+            }}
+          >
+            <CardContent className="p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold mb-1">
+                    {
+                      categories.filter(
+                        (cat) =>
+                          ideas.filter((idea) => idea.categoryId === cat.id)
+                            .length > 0,
+                      ).length
+                    }
+                  </div>
+                  <div className="text-green-100">En Uso</div>
+                  <div className="text-xs text-green-200 mt-1">
+                    Clic para ver categorizadas
+                  </div>
+                </div>
+                <div className="text-4xl">📊</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Categories List */}
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((category) => {
             const ideasCount = getIdeasCountForCategory(category.id);
             const isDefault = category.name === "Ideas Generales";

@@ -306,78 +306,89 @@ export default function IdeasList() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/")}
+                className="p-2"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Gestión de Ideas
+              </h1>
+            </div>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/")}
-              className="p-2"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-lg font-semibold text-gray-900">
-              Gestión de Ideas
-            </h1>
-            <Button
-              variant="ghost"
-              size="sm"
               onClick={() => navigate("/add")}
-              className="p-2"
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2"
             >
               <Plus className="h-5 w-5" />
+              Nueva Idea
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* View Toggle */}
-        <div className="flex bg-white rounded-lg p-1 shadow-sm">
-          <Button
-            variant={view === "pending" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setView("pending")}
-            className="flex-1 text-xs"
-          >
-            Pendientes ({ideas.filter((i) => !i.completed).length})
-          </Button>
-          <Button
-            variant={view === "completed" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setView("completed")}
-            className="flex-1 text-xs"
-          >
-            Completadas ({ideas.filter((i) => i.completed).length})
-          </Button>
-          <Button
-            variant={view === "all" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setView("all")}
-            className="flex-1 text-xs"
-          >
-            Todas ({ideas.length})
-          </Button>
-        </div>
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        <div className="flex items-center justify-between">
+          {/* View Toggle */}
+          <div className="flex bg-white rounded-lg p-1 shadow-sm">
+            <Button
+              variant={view === "pending" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("pending")}
+              className="px-6 py-2"
+            >
+              Pendientes ({ideas.filter((i) => !i.completed).length})
+            </Button>
+            <Button
+              variant={view === "completed" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("completed")}
+              className="px-6 py-2"
+            >
+              Completadas ({ideas.filter((i) => i.completed).length})
+            </Button>
+            <Button
+              variant={view === "all" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("all")}
+              className="px-6 py-2"
+            >
+              Todas ({ideas.length})
+            </Button>
+          </div>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            onClick={() => navigate("/categories")}
-            variant="outline"
-            className="flex items-center gap-2 justify-center"
-          >
-            <FolderPlus className="h-4 w-4" />
-            Categorías
-          </Button>
-          <Button
-            onClick={() => navigate("/import")}
-            variant="outline"
-            className="flex items-center gap-2 justify-center"
-          >
-            <Upload className="h-4 w-4" />
-            Importar
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button
+              onClick={() => navigate("/categories")}
+              variant="outline"
+              className="flex items-center gap-2 px-6 py-2 shadow-sm"
+            >
+              <FolderPlus className="h-4 w-4" />
+              Gestionar Categorías
+            </Button>
+            <Button
+              onClick={() => navigate("/import")}
+              variant="outline"
+              className="flex items-center gap-2 px-6 py-2 shadow-sm"
+            >
+              <Upload className="h-4 w-4" />
+              Importar Ideas
+            </Button>
+            <Button
+              onClick={() => navigate("/group")}
+              variant="outline"
+              className="flex items-center gap-2 px-6 py-2 shadow-sm"
+            >
+              <Users className="h-4 w-4" />
+              Configurar Grupo
+            </Button>
+          </div>
         </div>
 
         {/* Selected Ideas Actions */}
@@ -406,7 +417,7 @@ export default function IdeasList() {
         )}
 
         {/* Categories and Ideas */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Default/Uncategorized Ideas */}
           {uncategorizedIdeas.length > 0 && (
             <div className="space-y-3">

@@ -125,6 +125,67 @@ export const getUserGroups = async (
   return groups;
 };
 
+export const updateGroup = async (
+  groupId: string,
+  updates: Partial<Group>,
+): Promise<void> => {
+  const groupRef = doc(db, "groups", groupId);
+  await updateDoc(groupRef, {
+    ...updates,
+    dateUpdated: serverTimestamp(),
+  });
+};
+
+export const removeGroupMember = async (
+  groupId: string,
+  userId: string,
+): Promise<void> => {
+  // Find and delete the membership
+  const memberQuery = query(
+    collection(db, "groupMembers"),
+    where("groupId", "==", groupId),
+    where("userId", "==", userId),
+  );
+  const memberSnapshot = await getDocs(memberQuery);
+
+  if (!memberSnapshot.empty) {
+    const memberDoc = memberSnapshot.docs[0];
+    await deleteDoc(memberDoc.ref);
+
+    // Update member count
+    const currentMembersQuery = query(
+      collection(db, "groupMembers"),
+      where("groupId", "==", groupId),
+    );
+    const currentMembersSnapshot = await getDocs(currentMembersQuery);
+
+    await updateDoc(doc(db, "groups", groupId), {
+      memberCount: currentMembersSnapshot.size - 1, // -1 because we just deleted one
+    });
+  }
+};
+
+export const updateGroupMemberRole = async (
+  groupId: string,
+  userId: string,
+  newRole: "owner" | "admin" | "member",
+): Promise<void> => {
+  const memberQuery = query(
+    collection(db, "groupMembers"),
+    where("groupId", "==", groupId),
+    where("userId", "==", userId),
+  );
+  const memberSnapshot = await getDocs(memberQuery);
+
+  if (!memberSnapshot.empty) {
+    const memberDoc = memberSnapshot.docs[0];
+    await updateDoc(memberDoc.ref, {
+      role: newRole,
+      dateUpdated: serverTimestamp(),
+    });
+  }
+};
+
 export const joinGroup = async (
   userId: string,
   inviteCode: string,
@@ -187,11 +248,13 @@ export const createIdea = async (
   text: string,
   description?: string,
   categoryId?: string,
+  priority?: boolean,
 ): Promise<string> => {
   const ideaData = {
     text,
     description: description || null,
     categoryId: categoryId || null,
+    priority: priority || false,
     completed: false,
     dateCreated: serverTimestamp(),
     dateCompleted: null,

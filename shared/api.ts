@@ -47,6 +47,7 @@ export interface Idea {
   dateCreated: string;
   dateCompleted?: string;
   order: number;
+  priority?: boolean; // Agregar campo TOP
   groupId: string;
   createdBy: string;
   createdByUser?: User;
@@ -118,6 +119,7 @@ export interface CreateIdeaRequest {
   text: string;
   description?: string;
   categoryId?: string;
+  priority?: boolean;
   groupId: string;
 }
 
