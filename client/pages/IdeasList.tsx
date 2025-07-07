@@ -90,6 +90,11 @@ export default function IdeasList() {
   };
 
   const fetchCategories = async (groupId: string) => {
+    // Don't fetch if no user or no groupId
+    if (!user || !user.id || !groupId) {
+      return;
+    }
+
     try {
       const groupCategories = await getGroupCategories(groupId);
       setCategories(groupCategories);
@@ -98,7 +103,7 @@ export default function IdeasList() {
     } catch (error) {
       console.error("Error fetching categories:", error);
       // Only show error toast if user is authenticated and has a group
-      if (user && selectedGroup) {
+      if (user && user.id && selectedGroup) {
         toast({
           title: "Error",
           description:
