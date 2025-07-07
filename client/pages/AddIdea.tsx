@@ -13,31 +13,49 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
-import {
-  Category,
-  CreateIdeaRequest,
-  GetCategoriesResponse,
-} from "@shared/api";
+import { Category } from "@shared/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
+import { createIdea, getGroupCategories } from "@/lib/firebase-services";
 
 export default function AddIdea() {
+  const { user, loading } = useAuth();
   const [text, setText] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("none");
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (loading) return;
 
-  const fetchCategories = async () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const groupData = localStorage.getItem("selectedGroup");
+    if (!groupData) {
+      navigate("/groups");
+      return;
+    }
+
     try {
-      const response = await fetch("/api/categories");
-      const data = (await response.json()) as GetCategoriesResponse;
-      setCategories(data.categories);
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      fetchCategories(group.id);
+    } catch (error) {
+      navigate("/groups");
+    }
+  }, [user, loading, navigate]);
+
+  const fetchCategories = async (groupId: string) => {
+    try {
+      const groupCategories = await getGroupCategories(groupId);
+      setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
     }
@@ -45,37 +63,29 @@ export default function AddIdea() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || !user || !selectedGroup) return;
 
     setIsLoading(true);
     try {
-      const request: CreateIdeaRequest = {
-        text: text.trim(),
-        description: description.trim() || undefined,
-        categoryId:
-          categoryId && categoryId !== "none" ? categoryId : undefined,
-      };
+      await createIdea(
+        user.id,
+        selectedGroup.id,
+        text.trim(),
+        description.trim() || undefined,
+        categoryId && categoryId !== "none" ? categoryId : undefined,
+      );
 
-      const response = await fetch("/api/ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
+      toast({
+        title: "¡Idea agregada!",
+        description: "Tu idea ha sido guardada exitosamente.",
       });
 
-      if (response.ok) {
-        toast({
-          title: "¡Idea agregada!",
-          description: "Tu idea ha sido guardada exitosamente.",
-        });
-
-        // Reset form
-        setText("");
-        setDescription("");
-        setCategoryId("none");
-      } else {
-        throw new Error("Failed to create idea");
-      }
+      // Reset form
+      setText("");
+      setDescription("");
+      setCategoryId("none");
     } catch (error) {
+      console.error("Error creating idea:", error);
       toast({
         title: "Error",
         description: "No se pudo agregar la idea. Inténtalo de nuevo.",
@@ -91,6 +101,17 @@ export default function AddIdea() {
       handleSubmit(new Event("submit") as any);
     }
   };
+
+  if (loading || !user || !selectedGroup) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

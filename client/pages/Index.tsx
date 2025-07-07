@@ -16,15 +16,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Idea, GetIdeasResponse } from "@shared/api";
+import { Idea } from "@shared/api";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth-context";
+import { getGroupIdeas, completeIdea } from "@/lib/firebase-services";
 
 export default function Index() {
+  const { user, logout, loading } = useAuth();
   const [pendingIdeas, setPendingIdeas] = useState<Idea[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [showIdeaSelector, setShowIdeaSelector] = useState(false);
   const [todayCompletion, setTodayCompletion] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   const today = new Date();
@@ -37,9 +41,9 @@ export default function Index() {
   });
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem("token");
-    if (!token) {
+    if (loading) return;
+
+    if (!user) {
       navigate("/login");
       return;
     }
@@ -52,51 +56,70 @@ export default function Index() {
     }
 
     try {
-      setSelectedGroup(JSON.parse(groupData));
-      fetchPendingIdeas();
-      checkTodayCompletion();
+      const group = JSON.parse(groupData);
+      setSelectedGroup(group);
+      fetchPendingIdeas(group.id);
+      checkTodayCompletion(group.id);
     } catch (error) {
       navigate("/groups");
     }
-  }, [navigate]);
+  }, [user, loading, navigate]);
 
-  const fetchPendingIdeas = async () => {
+  const fetchPendingIdeas = async (groupId: string) => {
     try {
-      const response = await fetch("/api/ideas/pending");
-      const data = (await response.json()) as GetIdeasResponse;
-      setPendingIdeas(data.ideas);
+      setIsLoading(true);
+      const allIdeas = await getGroupIdeas(groupId);
+      const pending = allIdeas.filter((idea) => !idea.completed);
+      setPendingIdeas(pending);
     } catch (error) {
       console.error("Error fetching ideas:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const checkTodayCompletion = async () => {
+  const checkTodayCompletion = async (groupId: string) => {
     try {
-      const response = await fetch(`/api/completions/${todayString}`);
-      const data = await response.json();
-      if (data.completions.length > 0) {
-        setTodayCompletion(data.completions[0].idea.text);
+      // For now, check if any idea was completed today
+      const allIdeas = await getGroupIdeas(groupId);
+      const todayCompleted = allIdeas.find(
+        (idea) =>
+          idea.completed &&
+          idea.dateCompleted &&
+          new Date(idea.dateCompleted).toDateString() === today.toDateString(),
+      );
+
+      if (todayCompleted) {
+        setTodayCompletion(todayCompleted.text);
       }
     } catch (error) {
       console.error("Error checking today's completion:", error);
     }
   };
 
-  const completeIdea = async (idea: Idea) => {
-    try {
-      await fetch("/api/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ideaId: idea.id, date: todayString }),
-      });
+  const completeIdeaHandler = async (idea: Idea) => {
+    if (!user || !selectedGroup) return;
 
+    try {
+      await completeIdea(user.id, idea.id, todayString);
       setTodayCompletion(idea.text);
       setShowIdeaSelector(false);
-      fetchPendingIdeas();
+      fetchPendingIdeas(selectedGroup.id);
     } catch (error) {
       console.error("Error completing idea:", error);
     }
   };
+
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span>Cargando...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -116,10 +139,7 @@ export default function Index() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                localStorage.clear();
-                navigate("/login");
-              }}
+              onClick={logout}
               className="text-gray-600 hover:text-red-600"
             >
               <LogOut className="h-4 w-4" />
@@ -232,7 +252,7 @@ export default function Index() {
               <Card
                 key={idea.id}
                 className="cursor-pointer hover:shadow-md transition-shadow border-gray-200"
-                onClick={() => completeIdea(idea)}
+                onClick={() => completeIdeaHandler(idea)}
               >
                 <CardContent className="p-4">
                   <h3 className="font-medium text-gray-900 mb-1">
