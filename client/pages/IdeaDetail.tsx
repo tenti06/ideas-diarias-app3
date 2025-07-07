@@ -51,19 +51,28 @@ export default function IdeaDetail() {
 
   const fetchIdea = async () => {
     try {
-      const response = await fetch("/api/ideas");
+      const response = await fetch(`/api/ideas/${id}`);
+      if (!response.ok) {
+        throw new Error('Idea not found');
+      }
       const data = await response.json();
-      const foundIdea = data.ideas.find((i: Idea) => i.id === id);
-      if (foundIdea) {
-        setIdea(foundIdea);
-        setEditText(foundIdea.text);
-        setEditDescription(foundIdea.description || "");
-        setEditCategoryId(foundIdea.categoryId || "none");
+      const idea = data.idea;
+      
+      if (idea) {
+        setIdea(idea);
+        setEditText(idea.text);
+        setEditDescription(idea.description || "");
+        setEditCategoryId(idea.categoryId || "none");
       } else {
         navigate("/ideas");
       }
     } catch (error) {
       console.error("Error fetching idea:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la idea. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
       navigate("/ideas");
     }
   };
