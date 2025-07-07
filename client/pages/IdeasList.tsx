@@ -52,35 +52,52 @@ export default function IdeasList() {
       return;
     }
 
-    const groupData = localStorage.getItem("selectedGroup");
-    if (!groupData) {
-      navigate("/groups");
-      return;
-    }
+    // Add a small delay to ensure user is fully authenticated
+    const timeoutId = setTimeout(() => {
+      const groupData = localStorage.getItem("selectedGroup");
+      if (!groupData) {
+        navigate("/groups");
+        return;
+      }
 
-    try {
-      const group = JSON.parse(groupData);
-      setSelectedGroup(group);
-      fetchIdeas(group.id);
-      fetchCategories(group.id);
-    } catch (error) {
-      console.error("Error parsing group data:", error);
-      navigate("/groups");
-    }
+      try {
+        const group = JSON.parse(groupData);
+        setSelectedGroup(group);
+        // Only fetch if we have a fully authenticated user
+        if (user && user.id && group && group.id) {
+          fetchIdeas(group.id);
+          fetchCategories(group.id);
+        }
+      } catch (error) {
+        console.error("Error parsing group data:", error);
+        navigate("/groups");
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [user, loading, navigate]);
 
   const fetchIdeas = async (groupId: string) => {
+    // Don't fetch if user is not authenticated
+    if (!user || !user.id) {
+      console.log("Skipping ideas fetch - user not authenticated");
+      return;
+    }
+
     try {
       setIsLoading(true);
       const groupIdeas = await getGroupIdeas(groupId);
       setIdeas(groupIdeas);
     } catch (error) {
       console.error("Error fetching ideas:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
-        variant: "destructive",
-      });
+      // Only show error if user is authenticated (to avoid spam when not logged in)
+      if (user && user.id) {
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las ideas. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
