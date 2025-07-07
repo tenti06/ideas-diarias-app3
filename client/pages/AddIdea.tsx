@@ -88,13 +88,14 @@ export default function AddIdea() {
 
     setIsLoading(true);
     try {
-      await createIdea(
+      const ideaId = await createIdea(
         user.id,
         selectedGroup.id,
         text.trim(),
         description.trim() || undefined,
         categoryId && categoryId !== "none" ? categoryId : undefined,
       );
+      console.log('Idea creada con ID:', ideaId);
 
       toast({
         title: "¡Idea agregada!",
@@ -211,7 +212,12 @@ export default function AddIdea() {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Sin categoría</SelectItem>
+                    <SelectItem value="none">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-gray-400" />
+                        Sin categoría
+                      </div>
+                    </SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         <div className="flex items-center gap-2">
