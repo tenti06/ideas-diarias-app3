@@ -61,6 +61,7 @@ export default function IdeasList() {
     try {
       const group = JSON.parse(groupData);
       setSelectedGroup(group);
+<<<<<<< HEAD
       // Only fetch data if we have both user and group
       if (user && group.id) {
         fetchIdeas(group.id);
@@ -68,6 +69,11 @@ export default function IdeasList() {
       }
     } catch (error) {
       console.error("Error parsing group data:", error);
+=======
+      fetchIdeas(group.id);
+      fetchCategories(group.id);
+    } catch (error) {
+>>>>>>> origin/main
       navigate("/groups");
     }
   }, [user, loading, navigate]);

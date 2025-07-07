@@ -82,16 +82,23 @@ export default function Categories() {
       fetchCategories(group.id);
       fetchIdeas(group.id);
     } catch (error) {
+<<<<<<< HEAD
       console.error("Error parsing group data:", error);
+=======
+>>>>>>> origin/main
       navigate("/groups");
     }
   }, [user, loading, navigate]);
 
   const fetchCategories = async (groupId: string) => {
     try {
+<<<<<<< HEAD
       console.log("Fetching categories for group:", groupId, "User:", user?.id);
       const groupCategories = await getGroupCategories(groupId);
       console.log("Categories loaded successfully:", groupCategories.length);
+=======
+      const groupCategories = await getGroupCategories(groupId);
+>>>>>>> origin/main
       setCategories(groupCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
