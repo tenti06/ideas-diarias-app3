@@ -11,15 +11,6 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist/spa",
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          react: ['react', 'react-dom'],
-          mui: ['@mui/material', '@mui/icons-material'], // eliminá si no usás MUI
-          shared: ['./shared/utils', './shared/constants'], // opcional
-        },
-      },
-    },
   },
   plugins: [react(), expressPlugin()],
   resolve: {

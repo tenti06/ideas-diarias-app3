@@ -212,7 +212,6 @@ export default function ImportIdeas() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={fetchCategories}
                     className="text-xs"
                   >
                     ↻ Actualizar
